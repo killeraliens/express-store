@@ -14,16 +14,7 @@ app.use(express.json())
 app.use(helmet())
 app.use(cors())
 //app.use(validateBearerToken)
-app.use(function errorHandler(error, req, res, next) {
-  let response
-  if (NODE_ENV === "production") {
-    response = { error: { message: "Server Error" } }
-  } else {
-    console.log("ERRRORRR", error)
-    response = { message: error.message, error }
-  }
-  res.status(500).json(response)
-})
+app.use(errorHandler)
 app.use(validateContentType)
 
 const users = [
@@ -139,6 +130,8 @@ app.delete('/user/:userId', (req, res) => {
 })
 
 
+// MIDDLEWARE
+
 function validateBearerToken(req, res, next) {
   const apiToken = process.env.API_TOKEN
   const authHeader = req.get('Authorization')
@@ -152,13 +145,27 @@ function validateBearerToken(req, res, next) {
 }
 
 function validateContentType(req, res, next) {
-  console.log(req.headers)
-  if (req.headers['content-type'] && req.headers['content-type'] !== 'application/json' ) {
+  let contentTypeExists = req.headers['content-type'];
+  let contentTypeIsJson = req.is('application/json');
+
+  if (contentTypeExists && !contentTypeIsJson) {
     return res
       .status(400)
       .json({ error: 'content-type error' })
   }
+
   next()
+}
+
+function errorHandler(error, req, res, next) {
+  let response
+  if (NODE_ENV === "production") {
+    response = { error: { message: "Server Error" } }
+  } else {
+    console.log("ERRRORRR", error)
+    response = { message: error.message, error }
+  }
+  res.status(500).json(response)
 }
 
 module.exports = app
