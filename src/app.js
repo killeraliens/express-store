@@ -9,14 +9,6 @@ const { NODE_ENV } = require('./config')
 const app = express()
 const morganOption = NODE_ENV === 'production' ? 'tiny' : 'dev'
 
-app.use(morgan(morganOption))
-app.use(express.json())
-app.use(helmet())
-app.use(cors())
-//app.use(validateBearerToken)
-app.use(errorHandler)
-app.use(validateContentType)
-
 const users = [
   {
     "id": "3c8da4d5-1597-46e7-baa1-e402aed70d80",
@@ -34,6 +26,12 @@ const users = [
   }
 ]
 
+app.use(morgan(morganOption))
+app.use(express.json())
+app.use(helmet())
+app.use(cors())
+//app.use(validateBearerToken)
+//app.use(validateContentType)
 
 app.get('/user/:id', (req, res) => {
   const id = req.params.id
@@ -41,51 +39,13 @@ app.get('/user/:id', (req, res) => {
   res.json(user)
 })
 
-
 app.get('/user', (req, res) => {
   res.json(users)
 })
 
 
-app.post('/user', (req, res) => {
+app.post('/user', validateContentType, (req, res) => {
     const { username, password, favoriteClub, newsLetter=false } = req.body;
-
-    if (!username) {
-      return res
-        .status(400)
-        .send('Username required')
-    }
-
-    if (!password) {
-      return res
-        .status(400)
-        .send('Password required');
-    }
-
-    if (!favoriteClub) {
-      return res
-        .status(400)
-        .send('favorite Club required');
-    }
-
-    if (username.length < 6 || username.length > 20) {
-      return res
-        .status(400)
-        .send('Username must be between 6 and 20 characters');
-    }
-
-    if (password.length < 8 || password.length > 36) {
-      return res
-        .status(400)
-        .send('Password must be between 8 and 36 characters');
-    }
-
-    if (!password.match(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)) {
-      return res
-        .status(400)
-        .send('Password must be contain at least one digit');
-    }
-
     const clubs = [
       'Cache Valley Stone Society',
       'Ogden Curling Club',
@@ -93,13 +53,41 @@ app.post('/user', (req, res) => {
       'Salt City Curling Club',
       'Utah Olympic Oval Curling Club'
     ];
-
+    if (!username) {
+      return res
+        .status(400)
+        .send('Username required')
+    }
+    if (!password) {
+      return res
+        .status(400)
+        .send('Password required');
+    }
+    if (!favoriteClub) {
+      return res
+        .status(400)
+        .send('favorite Club required');
+    }
+    if (username.length < 6 || username.length > 20) {
+      return res
+        .status(400)
+        .send('Username must be between 6 and 20 characters');
+    }
+    if (password.length < 8 || password.length > 36) {
+      return res
+        .status(400)
+        .send('Password must be between 8 and 36 characters');
+    }
+    if (!password.match(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)) {
+      return res
+        .status(400)
+        .send('Password must be contain at least one digit');
+    }
     if (!clubs.includes(favoriteClub)) {
       return res
       .status(400)
       .send('Not a valid club');
     }
-
 
     const id = uuid()
     const newUser = { ... req.body, newsLetter, id }
@@ -114,23 +102,21 @@ app.post('/user', (req, res) => {
 
 app.delete('/user/:userId', (req, res) => {
   const { userId } = req.params
-
   const userIndex = users.findIndex(u => u.id === userId )
-
   if (userIndex === -1 ) {
     res
     .status(404)
     .json({error: 'User not found'})
   }
-
   users.splice(userIndex, 1)
   res
     .status(201)
     .send('Deleted user')
 })
 
+app.use(errorHandler)
 
-// MIDDLEWARE
+// MIDDLEWARE FNs
 
 function validateBearerToken(req, res, next) {
   const apiToken = process.env.API_TOKEN
@@ -146,9 +132,9 @@ function validateBearerToken(req, res, next) {
 
 function validateContentType(req, res, next) {
   let contentTypeExists = req.headers['content-type'];
-  let contentTypeIsJson = req.is('application/json');
+  let contentTypeIsJson = req.headers['content-type'] === 'application/json';
 
-  if (contentTypeExists && !contentTypeIsJson) {
+  if ( !contentTypeExists || !contentTypeIsJson) {
     return res
       .status(400)
       .json({ error: 'content-type error' })
